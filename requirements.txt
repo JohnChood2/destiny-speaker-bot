@@ -1,6 +1,6 @@
 streamlit
 langchain-openai
-pinecone-client
+pinecone
 pandas
 python-dotenv
 requests
