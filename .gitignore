@@ -1,0 +1,13 @@
+venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+.DS_Store
+data/*.sqlite
+data/*.zip
+data/lore_raw.csv
+.streamlit/secrets.toml
+*.pem
+*.key
+
