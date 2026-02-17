@@ -11,14 +11,28 @@ from pinecone import Pinecone
 TOP_K = 4
 
 
+def get_config_value(name: str, default: str | None = None) -> str | None:
+    """Read config from env vars first, then Streamlit secrets."""
+    env_value = os.getenv(name)
+    if env_value:
+        return env_value
+    try:
+        secret_value = st.secrets.get(name)
+        if secret_value:
+            return str(secret_value)
+    except Exception:
+        pass
+    return default
+
+
 @st.cache_resource
 def get_clients() -> Dict[str, object]:
     """Initialize and cache API clients."""
     load_dotenv()
 
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    pinecone_api_key = os.getenv("PINECONE_API_KEY")
-    index_name = os.getenv("PINECONE_INDEX_NAME", "destiny-lore")
+    openai_api_key = get_config_value("OPENAI_API_KEY")
+    pinecone_api_key = get_config_value("PINECONE_API_KEY")
+    index_name = get_config_value("PINECONE_INDEX_NAME", "destiny-lore")
 
     if not openai_api_key:
         raise EnvironmentError("OPENAI_API_KEY is missing.")
