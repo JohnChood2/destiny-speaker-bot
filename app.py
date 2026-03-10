@@ -1,117 +1,71 @@
-from __future__ import annotations
-
-import os
-from typing import Dict, List
-
 import streamlit as st
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from pinecone import Pinecone
 
-TOP_K = 4
+from config import load_runtime_config
+from rag_service import ask_lore
 
 
-def get_config_value(name: str, default: str | None = None) -> str | None:
-    """Read config from env vars first, then Streamlit secrets."""
-    env_value = os.getenv(name)
-    if env_value:
-        return env_value
-    try:
-        secret_value = st.secrets.get(name)
-        if secret_value:
-            return str(secret_value)
-    except Exception:
-        pass
-    return default
+def render_sources(sources: list[dict]) -> None:
+    """Render source cards for a response."""
+    if not sources:
+        st.write("No high-confidence sources found.")
+        return
 
-
-@st.cache_resource
-def get_clients() -> Dict[str, object]:
-    """Initialize and cache API clients."""
-    load_dotenv()
-
-    openai_api_key = get_config_value("OPENAI_API_KEY")
-    pinecone_api_key = get_config_value("PINECONE_API_KEY")
-    index_name = get_config_value("PINECONE_INDEX_NAME", "destiny-lore")
-
-    if not openai_api_key:
-        raise EnvironmentError("OPENAI_API_KEY is missing.")
-    if not pinecone_api_key:
-        raise EnvironmentError("PINECONE_API_KEY is missing.")
-
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=openai_api_key)
-    llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_api_key, temperature=0.2)
-    index = Pinecone(api_key=pinecone_api_key).Index(index_name)
-    return {"embeddings": embeddings, "llm": llm, "index": index}
-
-
-def retrieve_context(query: str, clients: Dict[str, object]) -> List[Dict]:
-    """Retrieve lore chunks from Pinecone for the query."""
-    embeddings: OpenAIEmbeddings = clients["embeddings"]  # type: ignore[assignment]
-    index = clients["index"]
-    query_vector = embeddings.embed_query(query)
-    result = index.query(vector=query_vector, top_k=TOP_K, include_metadata=True)
-    if hasattr(result, "matches"):
-        return list(result.matches)
-    return result.get("matches", [])
-
-
-def generate_answer(question: str, matches: List[Dict], clients: Dict[str, object]) -> str:
-    """Generate grounded answer using retrieved context."""
-    llm: ChatOpenAI = clients["llm"]  # type: ignore[assignment]
-    context_chunks = []
-    for match in matches:
-        md = match.get("metadata", {})
-        title = md.get("title", "Unknown")
-        text = md.get("text", "")
-        context_chunks.append(f"Title: {title}\n{text}")
-
-    context = "\n\n".join(context_chunks) if context_chunks else "No lore context retrieved."
-    prompt = (
-        "You are The Speaker's Ghost, an assistant for Destiny 2 lore.\n"
-        "Use only the provided lore context to answer the user's question.\n"
-        "If context is insufficient, say you are unsure and ask for a narrower question.\n\n"
-        f"Question:\n{question}\n\n"
-        f"Lore Context:\n{context}"
-    )
-    return llm.invoke(prompt).content
+    for idx, source in enumerate(sources, start=1):
+        st.markdown(f"**{idx}. {source['title']}** (score: {source['score']:.3f})")
+        snippet = (source.get("text", "") or "")[:260]
+        st.write(snippet + ("..." if len(snippet) == 260 else ""))
 
 
 def main() -> None:
-    """Render the Streamlit Destiny lore RAG app."""
+    """Render chat UI that wraps the RAG service."""
     st.set_page_config(page_title="The Speaker's Ghost", page_icon=":crystal_ball:")
     st.title("The Speaker's Ghost")
-    st.caption("Ask questions about Destiny 2 lore")
+    st.caption("Ask questions about Destiny 2 lore and get grounded answers.")
 
     try:
-        clients = get_clients()
+        load_runtime_config()
     except Exception as exc:
         st.error(f"Configuration error: {exc}")
         st.stop()
 
-    question = st.text_input("Ask a lore question", placeholder="Who is Savathun?")
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    with st.sidebar:
+        st.header("Session")
+        if st.button("Clear chat"):
+            st.session_state.messages = []
+            st.rerun()
+
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            if message["role"] == "assistant" and message.get("sources") is not None:
+                with st.expander("Sources"):
+                    render_sources(message["sources"])
+
+    question = st.chat_input("Ask a lore question (e.g., Who is Savathun?)")
     if not question:
         return
 
-    with st.spinner("Searching the archives..."):
-        matches = retrieve_context(question, clients)
-        answer = generate_answer(question, matches, clients)
+    st.session_state.messages.append({"role": "user", "content": question})
+    with st.chat_message("user"):
+        st.markdown(question)
 
-    st.subheader("Answer")
-    st.write(answer)
+    with st.chat_message("assistant"):
+        with st.spinner("Consulting the archives..."):
+            result = ask_lore(question)
+        st.markdown(result["answer"])
+        with st.expander("Sources"):
+            render_sources(result["sources"])
 
-    st.subheader("Sources")
-    if not matches:
-        st.write("No sources found.")
-        return
-
-    for i, match in enumerate(matches, start=1):
-        md = match.get("metadata", {})
-        title = md.get("title", "Unknown")
-        score = match.get("score", 0.0)
-        snippet = (md.get("text", "") or "")[:220]
-        st.markdown(f"**{i}. {title}** (score: {score:.3f})")
-        st.write(snippet + ("..." if len(snippet) == 220 else ""))
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": result["answer"],
+            "sources": result["sources"],
+        }
+    )
 
 
 if __name__ == "__main__":
