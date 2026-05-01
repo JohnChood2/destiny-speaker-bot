@@ -3,9 +3,11 @@
 venv
 __pycache__
 *.py[oc]
+*.pyc
 data/
 .git
 .gitignore
+.DS_Store
 *.content
 *.zip
 build/

@@ -1,14 +1,28 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
+*.pyc
 build/
 dist/
 wheels/
 *.egg-info
-.env
-data/
-venv/
-*.content
-*.zip
+
 # Virtual environments
 .venv
+venv/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+*.pem
+*.key
+
+# OS
+.DS_Store
+
+# Project data
+data/
+*.content
+*.zip
