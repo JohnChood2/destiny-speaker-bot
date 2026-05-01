@@ -1,0 +1,14 @@
+[project]
+name = "speakers-ghost"
+version = "0.1.0"
+description = "Destiny 2 lore RAG chatbot"
+requires-python = ">=3.10"
+dependencies = [
+    "chromadb",
+    "python-dotenv",
+    "requests",
+    "sentence-transformers",
+    "streamlit",
+    "torch",
+    "transformers",
+]

@@ -1,16 +1,18 @@
-FROM python:3.11-slim
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=1
+FROM python:3.12-slim AS base
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --no-cache-dir uv
 
-COPY . .
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
-EXPOSE 7860
+COPY app.py ./
+COPY scripts/ ./scripts/
 
-CMD ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]
+EXPOSE 8501
+
+CMD ["uv", "run", "streamlit", "run", "app.py", \
+     "--server.address=0.0.0.0", \
+     "--server.port=8501", \
+     "--server.headless=true"]
