@@ -70,9 +70,126 @@ GHOST'S ANSWER:"""
     return {"answer": answer, "sources": metas, "chunks": chunks}
 
 # ── Streamlit UI ──────────────────────────────────────────────────────────────
-st.set_page_config(page_title="The Speaker's Ghost", page_icon="👻")
-st.title("👻 The Speaker's Ghost")
-st.caption("Ask anything about the Destiny 2 universe. Answers drawn directly from in-game lore.")
+st.set_page_config(page_title="The Speaker's Ghost", page_icon="👻", layout="centered")
+
+# ── Destiny 2-inspired theme (custom CSS, no Bungie assets used) ─────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Titillium+Web:wght@300;400;600;700&display=swap');
+
+:root {
+    --d2-gold: #c8aa6e;
+    --d2-gold-bright: #e8cf9a;
+    --d2-cyan: #6fd6e8;
+    --d2-bg: #05070d;
+    --d2-panel: rgba(13, 20, 32, 0.72);
+    --d2-border: rgba(200, 170, 110, 0.35);
+    --d2-text: #e8e6e1;
+}
+
+html, body, [class*="css"] {
+    font-family: 'Titillium Web', sans-serif;
+    color: var(--d2-text);
+}
+
+.stApp {
+    background:
+        radial-gradient(ellipse at 20% -10%, rgba(111, 214, 232, 0.08), transparent 55%),
+        radial-gradient(ellipse at 80% 110%, rgba(200, 170, 110, 0.10), transparent 55%),
+        var(--d2-bg);
+}
+
+/* ── Header block ── */
+.ghost-header { text-align: center; margin-bottom: 0.5rem; }
+.ghost-header .emblem {
+    width: 46px; height: 46px; margin: 0 auto 0.6rem auto;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--d2-cyan) 40%, transparent 70%);
+    box-shadow: 0 0 22px 4px rgba(111, 214, 232, 0.55);
+}
+.ghost-header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 0.18em;
+    color: var(--d2-gold-bright);
+    text-shadow: 0 0 18px rgba(200, 170, 110, 0.45);
+    margin: 0;
+    line-height: 1.1;
+}
+.ghost-header .rule {
+    width: 220px; height: 1px; margin: 0.8rem auto;
+    background: linear-gradient(90deg, transparent, var(--d2-gold), transparent);
+}
+.ghost-header .subtitle {
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--d2-cyan);
+    opacity: 0.85;
+}
+
+/* ── Input field ── */
+.stTextInput input {
+    background-color: var(--d2-panel) !important;
+    border: 1px solid var(--d2-border) !important;
+    color: var(--d2-text) !important;
+    font-family: 'Titillium Web', sans-serif;
+    letter-spacing: 0.02em;
+}
+.stTextInput input:focus {
+    border-color: var(--d2-cyan) !important;
+    box-shadow: 0 0 12px rgba(111, 214, 232, 0.35) !important;
+}
+.stTextInput label {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.8rem;
+    color: var(--d2-gold);
+}
+
+/* ── Answer panel, styled like a HUD transmission ── */
+.transmission {
+    border: 1px solid var(--d2-border);
+    border-left: 3px solid var(--d2-gold);
+    background: var(--d2-panel);
+    padding: 1.1rem 1.4rem;
+    border-radius: 2px;
+    margin-top: 1rem;
+    box-shadow: 0 0 24px rgba(0,0,0,0.35);
+}
+.transmission .label {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.16em;
+    color: var(--d2-cyan);
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+/* ── Expander (lore archive) ── */
+div[data-testid="stExpander"] {
+    border: 1px solid var(--d2-border) !important;
+    background: var(--d2-panel) !important;
+    border-radius: 2px !important;
+}
+div[data-testid="stExpander"] summary {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.1em;
+    color: var(--d2-gold-bright) !important;
+}
+
+/* ── Spinner ── */
+.stSpinner > div {
+    border-top-color: var(--d2-cyan) !important;
+}
+</style>
+
+<div class="ghost-header">
+    <div class="emblem"></div>
+    <h1>The Speaker's Ghost</h1>
+    <div class="rule"></div>
+    <div class="subtitle">Guardian // Query the Archive of Sung and Unsung Lore</div>
+</div>
+""", unsafe_allow_html=True)
 
 query = st.text_input(
     "Your question:",
@@ -82,11 +199,16 @@ query = st.text_input(
 if query:
     with st.spinner("Ghost is searching the lore..."):
         result = answer_question(query)
-    
-    st.markdown("### Answer")
-    st.write(result["answer"])
-    
-    with st.expander("📖 Source lore passages"):
+
+    st.markdown(
+        f"""<div class="transmission">
+            <div class="label">👻 Ghost Transmission</div>
+            {result["answer"]}
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("📖 Archived lore // source passages"):
         for chunk, meta in zip(result["chunks"], result["sources"]):
             st.markdown(f"**{meta['title']}**")
             st.caption(chunk[:400] + "..." if len(chunk) > 400 else chunk)
