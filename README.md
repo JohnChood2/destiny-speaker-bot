@@ -1,4 +1,4 @@
-# The Speaker's Ghost
+ # The Speaker's Ghost
 
 A Destiny 2 lore chatbot powered by Retrieval-Augmented Generation (RAG). Ask any question about the Destiny universe and get answers drawn directly from in-game lore books, narrated in the voice of your Ghost.
 
