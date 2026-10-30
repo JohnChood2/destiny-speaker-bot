@@ -9,6 +9,11 @@ load_dotenv()
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
+# Chunks with a cosine distance above this are treated as unrelated to the question
+MAX_DISTANCE = float(os.getenv("MAX_DISTANCE", "0.6"))
+NO_LORE_ANSWER = (
+    "I searched everything I know, Guardian, but I can't find anything in the lore about that."
+)
 
 # ── Ollama LLM backend ───────────────────────────────────────────────────────
 def call_llm(prompt: str) -> str:
@@ -46,8 +51,17 @@ def answer_question(user_query: str, top_k: int = 5) -> dict:
         include=["documents", "metadatas", "distances"]
     )
     
-    chunks = results["documents"][0]
-    metas  = results["metadatas"][0]
+    kept = [
+        (c, m)
+        for c, m, d in zip(
+            results["documents"][0], results["metadatas"][0], results["distances"][0]
+        )
+        if d <= MAX_DISTANCE
+    ]
+    if not kept:
+        return {"answer": NO_LORE_ANSWER, "sources": [], "chunks": []}
+    chunks = [c for c, _ in kept]
+    metas  = [m for _, m in kept]
     
     # 3. Build the prompt
     context = "\n\n---\n\n".join(
@@ -65,7 +79,15 @@ GUARDIAN'S QUESTION: {user_query}
 GHOST'S ANSWER:"""
     
     # 4. Generate the answer via Ollama
-    answer = call_llm(prompt)
+    try:
+        answer = call_llm(prompt)
+    except requests.RequestException as e:
+        return {
+            "answer": f"My connection to the model at {OLLAMA_HOST} failed. Is Ollama running "
+                      f"and is `{OLLAMA_MODEL}` pulled? ({e.__class__.__name__})",
+            "sources": metas,
+            "chunks": chunks,
+        }
     
     return {"answer": answer, "sources": metas, "chunks": chunks}
 
