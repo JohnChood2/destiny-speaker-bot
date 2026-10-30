@@ -28,7 +28,7 @@ def main():
         metadata={"hnsw:space": "cosine"}
     )
     
-    ids, docs, metas, embeddings = [], [], [], []
+    ids, docs, metas = [], [], []
     
     for entry in entries:
         chunks = chunk_text(entry["body"])
@@ -37,7 +37,9 @@ def main():
             ids.append(chunk_id)
             docs.append(chunk)
             metas.append({"title": entry["title"], "hash": str(entry["hash"])})
-            embeddings.append(model.encode(chunk).tolist())
+    
+    # Encode all chunks in batches (much faster than one at a time)
+    embeddings = model.encode(docs, batch_size=64, show_progress_bar=True).tolist()
     
     # Upsert in batches of 500
     batch = 500
